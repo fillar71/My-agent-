@@ -3,6 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { exec } from "child_process";
+import { createProxyMiddleware } from "http-proxy-middleware";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,6 +19,37 @@ async function startServer() {
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok", message: "Fullstack server is running!" });
   });
+
+  // Proxy endpoints to bypass CORS for AI providers
+  app.use('/api/proxy/groq', createProxyMiddleware({
+    target: 'https://api.groq.com/openai/v1',
+    changeOrigin: true,
+    pathRewrite: { '^/api/proxy/groq': '' },
+  }));
+  
+  app.use('/api/proxy/mistral', createProxyMiddleware({
+    target: 'https://api.mistral.ai/v1',
+    changeOrigin: true,
+    pathRewrite: { '^/api/proxy/mistral': '' },
+  }));
+  
+  app.use('/api/proxy/deepseek', createProxyMiddleware({
+    target: 'https://api.deepseek.com/v1',
+    changeOrigin: true,
+    pathRewrite: { '^/api/proxy/deepseek': '' },
+  }));
+  
+  app.use('/api/proxy/openai', createProxyMiddleware({
+    target: 'https://api.openai.com/v1',
+    changeOrigin: true,
+    pathRewrite: { '^/api/proxy/openai': '' },
+  }));
+  
+  app.use('/api/proxy/anthropic', createProxyMiddleware({
+    target: 'https://api.anthropic.com',
+    changeOrigin: true,
+    pathRewrite: { '^/api/proxy/anthropic': '' },
+  }));
 
   app.post("/api/terminal", (req, res) => {
     const { command } = req.body;
