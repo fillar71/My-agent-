@@ -77,6 +77,12 @@ interface AppState {
   setGithubToken: React.Dispatch<React.SetStateAction<string>>;
   githubRepo: string;
   setGithubRepo: React.Dispatch<React.SetStateAction<string>>;
+  isMobileLeftSidebarOpen: boolean;
+  setIsMobileLeftSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  isMobileRightSidebarOpen: boolean;
+  setIsMobileRightSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  mobileActiveTab: "chat" | "editor" | "preview";
+  setMobileActiveTab: React.Dispatch<React.SetStateAction<"chat" | "editor" | "preview">>;
 }
 
 const AppContext = createContext<AppState | undefined>(undefined);
@@ -161,6 +167,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isGithubModalOpen, setIsGithubModalOpen] = useState(false);
   const [githubToken, setGithubToken] = useState("");
   const [githubRepo, setGithubRepo] = useState("");
+  const [isMobileLeftSidebarOpen, setIsMobileLeftSidebarOpen] = useState(false);
+  const [isMobileRightSidebarOpen, setIsMobileRightSidebarOpen] = useState(false);
+  const [mobileActiveTab, setMobileActiveTab] = useState<"chat" | "editor" | "preview">("chat");
 
   const addTerminalLog = (log: Omit<TerminalLog, "id" | "timestamp">) => {
     setTerminalLogs((prev) => [
@@ -212,6 +221,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         setGithubToken,
         githubRepo,
         setGithubRepo,
+        isMobileLeftSidebarOpen,
+        setIsMobileLeftSidebarOpen,
+        isMobileRightSidebarOpen,
+        setIsMobileRightSidebarOpen,
+        mobileActiveTab,
+        setMobileActiveTab,
       }}
     >
       {children}

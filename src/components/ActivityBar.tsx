@@ -9,28 +9,57 @@ export function ActivityBar() {
     isExplorerOpen, setIsExplorerOpen,
     isTerminalOpen, setIsTerminalOpen,
     isSettingsOpen, setIsSettingsOpen,
-    isGithubModalOpen, setIsGithubModalOpen
+    isGithubModalOpen, setIsGithubModalOpen,
+    setMobileActiveTab,
+    setIsMobileLeftSidebarOpen
   } = useAppStore();
+
+  const handleChatToggle = () => {
+    if (window.innerWidth < 768) {
+      setMobileActiveTab("chat");
+      setIsMobileLeftSidebarOpen(false);
+    } else {
+      setIsChatOpen(!isChatOpen);
+    }
+  };
+
+  const handleExplorerToggle = () => {
+    if (window.innerWidth < 768) {
+      // It's already open in mobile left sidebar
+    } else {
+      setIsExplorerOpen(!isExplorerOpen);
+    }
+  };
+
+  const handleTerminalToggle = () => {
+    if (window.innerWidth < 768) {
+      setIsTerminalOpen(!isTerminalOpen);
+      setMobileActiveTab("editor");
+      setIsMobileLeftSidebarOpen(false);
+    } else {
+      setIsTerminalOpen(!isTerminalOpen);
+    }
+  };
 
   return (
     <div className="w-12 shrink-0 h-full bg-[#181818] flex flex-col items-center py-4 z-20">
       <div className="space-y-4 flex flex-col items-center">
         <button 
-          onClick={() => setIsChatOpen(!isChatOpen)}
+          onClick={handleChatToggle}
           className={cn("p-2 rounded-xl transition-colors", isChatOpen ? "text-white" : "text-gray-500 hover:text-gray-300")}
           title="Toggle Chat"
         >
           <MessageSquare className="w-6 h-6" />
         </button>
         <button 
-          onClick={() => setIsExplorerOpen(!isExplorerOpen)}
+          onClick={handleExplorerToggle}
           className={cn("p-2 rounded-xl transition-colors", isExplorerOpen ? "text-white" : "text-gray-500 hover:text-gray-300")}
           title="Toggle Explorer"
         >
           <Files className="w-6 h-6" />
         </button>
         <button 
-          onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+          onClick={handleTerminalToggle}
           className={cn("p-2 rounded-xl transition-colors", isTerminalOpen ? "text-white" : "text-gray-500 hover:text-gray-300")}
           title="Toggle Terminal"
         >

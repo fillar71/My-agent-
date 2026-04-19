@@ -17,7 +17,7 @@ import {
 import { cn } from "../lib/utils";
 
 export function FileExplorer() {
-  const { files, setFiles, activeFile, setActiveFile, setIsExplorerOpen } = useAppStore();
+  const { files, setFiles, activeFile, setActiveFile, setIsExplorerOpen, setMobileActiveTab, setIsMobileLeftSidebarOpen } = useAppStore();
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -216,7 +216,13 @@ export function FileExplorer() {
           <div
             key={path}
             onClick={() => {
-              if (editingPath !== path) setActiveFile(path);
+              if (editingPath !== path) {
+                setActiveFile(path);
+                if (window.innerWidth < 768) {
+                  setMobileActiveTab("editor");
+                  setIsMobileLeftSidebarOpen(false);
+                }
+              }
             }}
             className={cn(
               "w-full flex items-center gap-2 px-4 py-1 text-[13px] hover:bg-[#2a2d2e] transition-colors text-left group cursor-pointer",
