@@ -1,39 +1,72 @@
 import React from "react";
 import { useAppStore } from "../store";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
+import Markdown from "react-markdown";
 
 export function Preview() {
-  return (
-    <div className="h-full flex flex-col bg-white">
-      <div className="flex items-center px-4 py-2 bg-gray-100 border-b border-gray-200">
-        <span className="text-sm font-medium text-gray-700">Live Preview</span>
+  const { files, activeFile } = useAppStore();
+
+  if (!activeFile) {
+    return (
+      <div className="h-full flex items-center justify-center bg-[#1e1e1e] text-[#cccccc]">
+        Select a file to preview
       </div>
-      <div className="flex-1 w-full bg-white relative">
-        <iframe 
-          className="w-full h-full border-none"
-          title="preview"
-          srcdoc={`
-            <!DOCTYPE html>
-            <html lang="en">
-              <head>
-                <meta charset="UTF-8" />
-                <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-                <title>Preview</title>
-                <style>
-                  body { font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #f9fafb; color: #374151; }
-                  .container { text-align: center; }
-                  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-                  p { color: #6b7280; max-width: 300px; margin: 0 auto; }
-                </style>
-              </head>
-              <body>
-                <div class="container">
-                  <h1>Preview Pane</h1>
-                  <p>In a real implementation, this would compile and render your React code.</p>
-                </div>
-              </body>
-            </html>
-          `}
-        />
+    );
+  }
+
+  const content = files[activeFile] || "";
+  const ext = activeFile.split(".").pop()?.toLowerCase();
+
+  const isMarkdown = ext === "md";
+
+  const language =
+    ext === "tsx" || ext === "ts"
+      ? "typescript"
+      : ext === "json"
+        ? "json"
+        : ext === "css"
+          ? "css"
+          : ext === "html"
+            ? "html"
+            : ext === "md"
+              ? "markdown"
+              : "javascript";
+
+  return (
+    <div className="h-full flex flex-col bg-[#1e1e1e]">
+      <div className="flex items-center px-4 py-2 bg-[#2d2d2d] border-b border-[#1e1e1e]">
+        <span className="text-[13px] text-[#cccccc]">
+          Preview: {activeFile.split("/").pop()}
+        </span>
+      </div>
+      <div className="flex-1 overflow-auto relative bg-[#1e1e1e]">
+        {isMarkdown ? (
+          <div className="p-6 text-[#cccccc] prose prose-invert max-w-none">
+            <Markdown>{content}</Markdown>
+          </div>
+        ) : ext === "html" || ext === "svg" ? (
+          <iframe 
+            className="w-full h-full border-none bg-white"
+            title="preview"
+            srcDoc={content}
+          />
+        ) : (
+          <SyntaxHighlighter
+            language={language}
+            style={vscDarkPlus}
+            customStyle={{
+              margin: 0,
+              padding: "1rem",
+              height: "100%",
+              background: "transparent",
+              fontSize: "14px",
+            }}
+            showLineNumbers
+          >
+            {content}
+          </SyntaxHighlighter>
+        )}
       </div>
     </div>
   );
