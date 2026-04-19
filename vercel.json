@@ -1,0 +1,28 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/proxy/openai/:path*",
+      "destination": "https://api.openai.com/v1/:path*"
+    },
+    {
+      "source": "/api/proxy/groq/:path*",
+      "destination": "https://api.groq.com/openai/v1/:path*"
+    },
+    {
+      "source": "/api/proxy/mistral/:path*",
+      "destination": "https://api.mistral.ai/v1/:path*"
+    },
+    {
+      "source": "/api/proxy/deepseek/:path*",
+      "destination": "https://api.deepseek.com/v1/:path*"
+    },
+    {
+      "source": "/api/proxy/anthropic/:path*",
+      "destination": "https://api.anthropic.com/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

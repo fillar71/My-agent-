@@ -5,7 +5,7 @@ export async function generateEmbedding(text: string, openaiApiKey: string): Pro
     throw new Error("OpenAI API Key is required to generate embeddings for memory.");
   }
 
-  const openai = new OpenAI({ apiKey: openaiApiKey, baseURL: "/api/proxy/openai", dangerouslyAllowBrowser: true });
+  const openai = new OpenAI({ apiKey: openaiApiKey, baseURL: `${window.location.origin}/api/proxy/openai`, dangerouslyAllowBrowser: true });
   
   const response = await openai.embeddings.create({
     model: "text-embedding-3-small",

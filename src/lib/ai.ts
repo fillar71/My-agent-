@@ -237,10 +237,10 @@ async function runGemini(apiKey: string, model: string, fullPrompt: string, hist
 }
 
 async function runOpenAI(provider: AIProvider, apiKey: string, model: string, fullPrompt: string, history: any[], onStreamChunk: any, onToolCall: any) {
-  let baseURL = "/api/proxy/openai";
-  if (provider === 'groq') baseURL = "/api/proxy/groq";
-  if (provider === 'mistral') baseURL = "/api/proxy/mistral";
-  if (provider === 'deepseek') baseURL = "/api/proxy/deepseek";
+  let baseURL = `${window.location.origin}/api/proxy/openai`;
+  if (provider === 'groq') baseURL = `${window.location.origin}/api/proxy/groq`;
+  if (provider === 'mistral') baseURL = `${window.location.origin}/api/proxy/mistral`;
+  if (provider === 'deepseek') baseURL = `${window.location.origin}/api/proxy/deepseek`;
 
   const openai = new OpenAI({ apiKey, baseURL, dangerouslyAllowBrowser: true });
   
@@ -312,7 +312,7 @@ async function runOpenAI(provider: AIProvider, apiKey: string, model: string, fu
 }
 
 async function runAnthropic(apiKey: string, model: string, fullPrompt: string, history: any[], onStreamChunk: any, onToolCall: any) {
-  const anthropic = new Anthropic({ apiKey, baseURL: "/api/proxy/anthropic", dangerouslyAllowBrowser: true });
+  const anthropic = new Anthropic({ apiKey, baseURL: `${window.location.origin}/api/proxy/anthropic`, dangerouslyAllowBrowser: true });
   
   const messages: any[] = [
     ...history.map((h: any) => ({ role: h.role === "model" ? "assistant" : "user", content: h.parts[0].text })),
