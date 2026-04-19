@@ -151,6 +151,30 @@ export async function processAgentTurn(
   }
 }
 
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function executeWithRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let retries = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (error: any) {
+      const isRateLimit = 
+        error?.status === 429 || 
+        error?.response?.status === 429 || 
+        (error?.message && error.message.includes('429'));
+        
+      if (isRateLimit && retries < maxRetries) {
+        retries++;
+        console.warn(`Rate limited (429). Retrying in ${retries * 2}s...`);
+        await delay(2000 * Math.pow(2, retries)); // Exponential backoff: 4s, 8s, 16s...
+        continue;
+      }
+      throw error;
+    }
+  }
+}
+
 async function runGemini(apiKey: string, model: string, fullPrompt: string, history: any[], onStreamChunk: any, onToolCall: any) {
   const ai = new GoogleGenAI({ apiKey });
   const contents = [
@@ -161,7 +185,7 @@ async function runGemini(apiKey: string, model: string, fullPrompt: string, hist
   let fullText = "";
   
   for (let turn = 0; turn < 15; turn++) {
-    const responseStream = await ai.models.generateContentStream({
+    const responseStream = await executeWithRetry(() => ai.models.generateContentStream({
       model,
       contents: contents as any,
       config: {
@@ -169,7 +193,7 @@ async function runGemini(apiKey: string, model: string, fullPrompt: string, hist
         tools: [{ functionDeclarations: getGeminiTools() }],
         temperature: 0.2,
       },
-    });
+    }));
 
     let functionCalls: any[] = [];
     let modelParts: any[] = [];
@@ -231,13 +255,13 @@ async function runOpenAI(provider: AIProvider, apiKey: string, model: string, fu
   let fullText = "";
 
   for (let turn = 0; turn < 15; turn++) {
-    const stream = await openai.chat.completions.create({
+    const stream = await executeWithRetry(() => openai.chat.completions.create({
       model,
       messages,
       stream: true,
       tools: getOpenAITools(),
       temperature: 0.2
-    });
+    }));
 
     let currentText = "";
     let toolCalls: any[] = [];
@@ -290,7 +314,7 @@ async function runAnthropic(apiKey: string, model: string, fullPrompt: string, h
   let fullText = "";
 
   for (let turn = 0; turn < 15; turn++) {
-    const stream = await anthropic.messages.create({
+    const stream = await executeWithRetry(() => anthropic.messages.create({
       model,
       messages,
       system: SYSTEM_INSTRUCTION,
@@ -298,7 +322,7 @@ async function runAnthropic(apiKey: string, model: string, fullPrompt: string, h
       tools: getAnthropicTools(),
       max_tokens: 4096,
       temperature: 0.2
-    });
+    }));
 
     let currentText = "";
     let currentToolCall: any = null;
