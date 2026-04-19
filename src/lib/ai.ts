@@ -158,38 +158,47 @@ async function runGemini(apiKey: string, model: string, fullPrompt: string, hist
     { role: "user", parts: [{ text: fullPrompt }] },
   ];
 
-  const responseStream = await ai.models.generateContentStream({
-    model,
-    contents: contents as any,
-    config: {
-      systemInstruction: SYSTEM_INSTRUCTION,
-      tools: [{ functionDeclarations: getGeminiTools() }],
-      temperature: 0.2,
-    },
-  });
-
   let fullText = "";
-  let functionCalls: any[] = [];
-  let modelParts: any[] = [];
+  
+  for (let turn = 0; turn < 15; turn++) {
+    const responseStream = await ai.models.generateContentStream({
+      model,
+      contents: contents as any,
+      config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
+        tools: [{ functionDeclarations: getGeminiTools() }],
+        temperature: 0.2,
+      },
+    });
 
-  for await (const chunk of responseStream) {
-    const c = chunk as GenerateContentResponse;
-    const parts = c.candidates?.[0]?.content?.parts || [];
-    
-    // Collect all parts for history (including thoughts/text and function calls)
-    modelParts.push(...parts);
-    
-    const textPart = parts.find(p => p.text);
-    if (textPart?.text) {
-      fullText += textPart.text;
-      onStreamChunk(textPart.text);
-    }
-    if (c.functionCalls && c.functionCalls.length > 0) {
-      functionCalls.push(...c.functionCalls);
-    }
-  }
+    let functionCalls: any[] = [];
+    let modelParts: any[] = [];
 
-  if (functionCalls.length > 0) {
+    for await (const chunk of responseStream) {
+      const c = chunk as GenerateContentResponse;
+      const parts = c.candidates?.[0]?.content?.parts || [];
+      modelParts.push(...parts);
+      
+      const textPart = parts.find(p => p.text);
+      if (textPart?.text) {
+        fullText += textPart.text;
+        onStreamChunk(textPart.text);
+      }
+      if (c.functionCalls && c.functionCalls.length > 0) {
+        functionCalls.push(...c.functionCalls);
+      }
+    }
+
+    if (functionCalls.length === 0) break;
+
+    const uniqueModelParts = modelParts.filter((part, index, self) => 
+      index === self.findIndex((t) => (
+        (t.text && t.text === part.text) || 
+        (t.functionCall && part.functionCall && t.functionCall.name === part.functionCall.name)
+      ))
+    );
+    contents.push({ role: "model", parts: uniqueModelParts });
+
     const toolResponses = [];
     for (const call of functionCalls) {
       try {
@@ -199,40 +208,9 @@ async function runGemini(apiKey: string, model: string, fullPrompt: string, hist
         toolResponses.push({ functionResponse: { name: call.name, response: { error: err.message } } });
       }
     }
-
-    // Filter out duplicate function calls from modelParts if any, 
-    // but keep text parts (thoughts) and the function calls
-    const uniqueModelParts = modelParts.filter((part, index, self) => 
-      index === self.findIndex((t) => (
-        (t.text && t.text === part.text) || 
-        (t.functionCall && part.functionCall && t.functionCall.name === part.functionCall.name)
-      ))
-    );
-
-    const followUpStream = await ai.models.generateContentStream({
-      model,
-      contents: [
-        ...contents,
-        { role: "model", parts: uniqueModelParts },
-        { role: "user", parts: toolResponses },
-      ] as any,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        tools: [{ functionDeclarations: getGeminiTools() }],
-        temperature: 0.2,
-      },
-    });
-
-    for await (const chunk of followUpStream) {
-      const c = chunk as GenerateContentResponse;
-      const parts = c.candidates?.[0]?.content?.parts || [];
-      const textPart = parts.find(p => p.text);
-      if (textPart?.text) {
-        fullText += textPart.text;
-        onStreamChunk(textPart.text);
-      }
-    }
+    contents.push({ role: "user", parts: toolResponses });
   }
+
   return fullText;
 }
 
@@ -250,37 +228,42 @@ async function runOpenAI(provider: AIProvider, apiKey: string, model: string, fu
     { role: "user", content: fullPrompt }
   ];
 
-  const stream = await openai.chat.completions.create({
-    model,
-    messages,
-    stream: true,
-    tools: getOpenAITools(),
-    temperature: 0.2
-  });
-
   let fullText = "";
-  let toolCalls: any[] = [];
 
-  for await (const chunk of stream) {
-    const delta = chunk.choices[0]?.delta;
-    if (delta?.content) {
-      fullText += delta.content;
-      onStreamChunk(delta.content);
-    }
-    if (delta?.tool_calls) {
-      for (const tc of delta.tool_calls) {
-        if (!toolCalls[tc.index]) {
-          toolCalls[tc.index] = { id: tc.id, type: 'function', function: { name: tc.function?.name, arguments: '' } };
-        }
-        if (tc.function?.arguments) {
-          toolCalls[tc.index].function.arguments += tc.function.arguments;
+  for (let turn = 0; turn < 15; turn++) {
+    const stream = await openai.chat.completions.create({
+      model,
+      messages,
+      stream: true,
+      tools: getOpenAITools(),
+      temperature: 0.2
+    });
+
+    let currentText = "";
+    let toolCalls: any[] = [];
+
+    for await (const chunk of stream) {
+      const delta = chunk.choices[0]?.delta;
+      if (delta?.content) {
+        currentText += delta.content;
+        fullText += delta.content;
+        onStreamChunk(delta.content);
+      }
+      if (delta?.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          if (!toolCalls[tc.index]) {
+            toolCalls[tc.index] = { id: tc.id, type: 'function', function: { name: tc.function?.name, arguments: '' } };
+          }
+          if (tc.function?.arguments) {
+            toolCalls[tc.index].function.arguments += tc.function.arguments;
+          }
         }
       }
     }
-  }
 
-  if (toolCalls.length > 0) {
-    messages.push({ role: "assistant", content: fullText || null, tool_calls: toolCalls });
+    if (toolCalls.length === 0) break;
+
+    messages.push({ role: "assistant", content: currentText || null, tool_calls: toolCalls });
     
     for (const call of toolCalls) {
       try {
@@ -291,23 +274,8 @@ async function runOpenAI(provider: AIProvider, apiKey: string, model: string, fu
         messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify({ error: err.message }) });
       }
     }
-
-    const followUpStream = await openai.chat.completions.create({
-      model,
-      messages,
-      stream: true,
-      tools: getOpenAITools(),
-      temperature: 0.2
-    });
-
-    for await (const chunk of followUpStream) {
-      const delta = chunk.choices[0]?.delta;
-      if (delta?.content) {
-        fullText += delta.content;
-        onStreamChunk(delta.content);
-      }
-    }
   }
+
   return fullText;
 }
 
@@ -319,37 +287,42 @@ async function runAnthropic(apiKey: string, model: string, fullPrompt: string, h
     { role: "user", content: fullPrompt }
   ];
 
-  const stream = await anthropic.messages.create({
-    model,
-    messages,
-    system: SYSTEM_INSTRUCTION,
-    stream: true,
-    tools: getAnthropicTools(),
-    max_tokens: 4096,
-    temperature: 0.2
-  });
-
   let fullText = "";
-  let currentToolCall: any = null;
-  let toolCalls: any[] = [];
 
-  for await (const event of stream) {
-    if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
-      currentToolCall = { id: event.content_block.id, name: event.content_block.name, input: '' };
-    } else if (event.type === 'content_block_delta' && event.delta.type === 'input_json_delta') {
-      if (currentToolCall) currentToolCall.input += event.delta.partial_json;
-    } else if (event.type === 'content_block_stop' && currentToolCall) {
-      toolCalls.push(currentToolCall);
-      currentToolCall = null;
-    } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-      fullText += event.delta.text;
-      onStreamChunk(event.delta.text);
+  for (let turn = 0; turn < 15; turn++) {
+    const stream = await anthropic.messages.create({
+      model,
+      messages,
+      system: SYSTEM_INSTRUCTION,
+      stream: true,
+      tools: getAnthropicTools(),
+      max_tokens: 4096,
+      temperature: 0.2
+    });
+
+    let currentText = "";
+    let currentToolCall: any = null;
+    let toolCalls: any[] = [];
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_start' && event.content_block.type === 'tool_use') {
+        currentToolCall = { id: event.content_block.id, name: event.content_block.name, input: '' };
+      } else if (event.type === 'content_block_delta' && event.delta.type === 'input_json_delta') {
+        if (currentToolCall) currentToolCall.input += event.delta.partial_json;
+      } else if (event.type === 'content_block_stop' && currentToolCall) {
+        toolCalls.push(currentToolCall);
+        currentToolCall = null;
+      } else if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+        currentText += event.delta.text;
+        fullText += event.delta.text;
+        onStreamChunk(event.delta.text);
+      }
     }
-  }
 
-  if (toolCalls.length > 0) {
+    if (toolCalls.length === 0) break;
+
     const assistantContent: any[] = [];
-    if (fullText) assistantContent.push({ type: "text", text: fullText });
+    if (currentText) assistantContent.push({ type: "text", text: currentText });
     for (const tc of toolCalls) {
       assistantContent.push({ type: "tool_use", id: tc.id, name: tc.name, input: JSON.parse(tc.input) });
     }
@@ -366,23 +339,7 @@ async function runAnthropic(apiKey: string, model: string, fullPrompt: string, h
       }
     }
     messages.push({ role: "user", content: toolResultContent });
-
-    const followUpStream = await anthropic.messages.create({
-      model,
-      messages,
-      system: SYSTEM_INSTRUCTION,
-      stream: true,
-      tools: getAnthropicTools(),
-      max_tokens: 4096,
-      temperature: 0.2
-    });
-
-    for await (const event of followUpStream) {
-      if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-        fullText += event.delta.text;
-        onStreamChunk(event.delta.text);
-      }
-    }
   }
+
   return fullText;
 }
