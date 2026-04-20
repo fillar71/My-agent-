@@ -105,7 +105,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         {
           id: "1",
           role: "model",
-          content: "Hello! I am your autonomous coder agent. What would you like to build today?\n\nBefore we begin, please let me know your preferred specifications if you have them:\n- Frontend/Tech Stack (e.g., React, Vue, HTML/CSS)\n- Backend Framework (if any)\n- Database Selection\n- Any specific project structure",
+          content: "Hello! I am your autonomous coder agent. What would you like to build today?\n\nIf you have a short instruction (e.g., 'Build an online shopping website'), I will:\n1. Recommend specifications & tech stack.\n2. Break down the tasks.\n3. Execute and test carefully.\n4. Handle any errors autonomously.\n\nLet's get started!",
         },
       ],
       updatedAt: Date.now(),
